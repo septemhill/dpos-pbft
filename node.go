@@ -140,6 +140,7 @@ func (n *Node) ProcessMessage(msg *Message) {
 	switch msg.Type {
 	case MessageTypeInit:
 	case MessageTypeBlock:
+
 	default:
 		n.Pbft.ProcessStageMessage(msg)
 	}
