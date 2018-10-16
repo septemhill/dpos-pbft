@@ -3,48 +3,64 @@ package main
 import (
 	"context"
 	"encoding/gob"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 const (
-	numberOfNodes = 20
+	numberOfNodes     int   = 20
+	numberOfPeers     int64 = 5
+	listenPort        int64 = 1111
+	numberOfDelegates int64 = 20
+	slotTimeInterval  int64 = 5
 )
 
-var nodes []*Node
+func gobInterfaceRegister() {
+	gob.Register(Block{})
+	gob.Register(Transaction{})
+	gob.Register(StageMessage{})
+}
+
+func init() {
+	gobInterfaceRegister()
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	sigs := make(chan os.Signal, 1)
-	done := make(chan struct{}, 1)
+	sysdone := make(chan struct{}, 1)
+	sigCh := make(chan os.Signal, 1)
 
-	gob.Register(Block{})
-
-	//Interrupt signal register
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		<-sigs
-		done <- struct{}{}
+		<-sigCh
+		sysdone <- struct{}{}
 	}()
 
-	//Initialize nodes
+	nodes := make([]*Node, 0)
+
 	for i := 0; i < numberOfNodes; i++ {
-		node := NewNode(ctx, int64(i), false)
+		node := NewNode(ctx, int64(i))
 		nodes = append(nodes, node)
 	}
 
-	//Initialize P2P Network
 	for i := 0; i < numberOfNodes; i++ {
 		nodes[i].Connect()
 	}
 
-	//Start forging
 	for i := 0; i < numberOfNodes; i++ {
-		nodes[i].Start()
+		go nodes[i].StartForging()
 	}
 
-	<-done
+	//for i := 0; i < numberOfNodes; i++ {
+	//	msg := BlockMessage(int64(i), *RandomGenerateBlock())
+	//	nodes[i].Broadcast(msg)
+	//	time.Sleep(time.Second * 2)
+	//}
+
+	<-sysdone
 	cancel()
 }

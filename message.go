@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/gob"
-	"fmt"
-	"io"
+	"log"
+	"strconv"
 )
 
 const (
@@ -14,67 +14,64 @@ const (
 )
 
 type Message struct {
-	Type int
-	Body interface{}
+	Type      int
+	Body      interface{}
+	RoutePath []int64
 }
 
-type InitMsg struct {
-	Id int
-}
-
-type BlockMsg struct {
-	Block
-}
-
-type PrepareMsg struct {
+type StageMessage struct {
 	Height int64
 	Hash   string
-	Signer int64
+	Signer string
 }
 
-type CommitMsg struct {
-	Height int64
-	Hash   string
-	Signer int64
-}
-
-func (m *Message) Serialize(w io.Writer) error {
-	enc := gob.NewEncoder(w)
-	if err := enc.Encode(*m); err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("Message Serialize Failed")
-	}
-	return nil
-}
-
-func (m *Message) Deserialize(r io.Reader) error {
-	dec := gob.NewDecoder(r)
-	if err := dec.Decode(m); err != nil {
-		return fmt.Errorf("Message Deserialize Failed")
-	}
-	return nil
-}
-
-func (m *Message) InitMessage(id int64) *Message {
-	m.Type = MessageTypeInit
-	m.Body = id
+func InitMessage(nodeId int64) *Message {
+	m := &Message{Type: MessageTypeInit, RoutePath: make([]int64, 0)}
+	m.Body = "Message from" + strconv.FormatInt(nodeId, 10)
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
-func (m *Message) BlockMessage(block Block) *Message {
-	m.Type = MessageTypeBlock
+func BlockMessage(nodeId int64, block Block) *Message {
+	m := &Message{Type: MessageTypeBlock, RoutePath: make([]int64, 0)}
 	m.Body = block
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
-func (m *Message) PrepareMessage() *Message {
-	m.Type = MessageTypePrepare
-	//m.Body =
+func PrepareMessage(nodeId int64, stage StageMessage) *Message {
+	m := &Message{Type: MessageTypePrepare, RoutePath: make([]int64, 0)}
+	m.Body = stage
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
-func (m *Message) CommitMessage() *Message {
-	m.Type = MessageTypeCommit
-	//m.Body =
+func CommitMessage(nodeId int64, stage StageMessage) *Message {
+	m := &Message{Type: MessageTypeCommit, RoutePath: make([]int64, 0)}
+	m.Body = stage
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
+}
+
+func SendMessage(msg *Message, enc *gob.Encoder, nodeId int64) error {
+	//Trace routing path (DEBUG)
+	if msg.RoutePath[len(msg.RoutePath)-1] != nodeId {
+		msg.RoutePath = append(msg.RoutePath, nodeId)
+	}
+
+	err := enc.Encode(msg)
+	if err != nil {
+		log.Println("[Send Message]", err)
+	}
+
+	return err
+}
+
+func ReceiveMessage(msg *Message, dec *gob.Decoder) error {
+	err := dec.Decode(msg)
+	if err != nil {
+		log.Println("[Receive Message]", err)
+	}
+
+	return err
 }

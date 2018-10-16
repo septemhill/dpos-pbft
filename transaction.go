@@ -1,7 +1,6 @@
 package main
 
 type Transaction struct {
-	Id        int
-	Sender    string
-	Recipient string
+	Id        int64
+	Timestamp int64
 }

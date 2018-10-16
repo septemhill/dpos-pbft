@@ -5,71 +5,90 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
-	"fmt"
-	"io"
+	"time"
 )
 
 type Block struct {
-	Version       int
+	Version       int64
 	Height        int64
 	Timestamp     int64
 	Forger        string
 	PrevBlockHash string
 	Hash          string
 	MerkleRoot    string
-	Transtions    []Transaction
+	Transactions  []Transaction
 }
 
-func (b *Block) Serialize(w io.Writer) error {
-	enc := gob.NewEncoder(w)
-	if err := enc.Encode(b); err != nil {
-		return fmt.Errorf("Block Serialize Failed")
+func NewGenesisBlock() *Block {
+	b := &Block{
+		Version:       1,
+		Height:        0,
+		Timestamp:     time.Now().Unix(),
+		Forger:        "Septem",
+		PrevBlockHash: "0000000000000000000000000000000000000000000000000000000000000000",
+		MerkleRoot:    "0000000000000000000000000000000000000000000000000000000000000000",
+		Transactions:  make([]Transaction, 0),
 	}
-	return nil
-}
 
-func (b *Block) Deserialize(r io.Reader) error {
-	dec := gob.NewDecoder(r)
-	if err := dec.Decode(b); err != nil {
-		return fmt.Errorf("Block Deserialize Failed")
-	}
-	return nil
-}
+	b.CalculateHash()
 
-func (b *Block) AddTransaction() {}
-
-func (b *Block) GetPrevBlockHash() string {
-	return b.PrevBlockHash
-}
-
-func (b *Block) GetTimestamp() int64 {
-	return b.Timestamp
-}
-
-func (b *Block) GetHeight() int64 {
-	return b.Height
+	return b
 }
 
 func (b *Block) GetHash() string {
 	return b.Hash
 }
 
-func (b *Block) CalculateMerkleHash() {
-	b.MerkleRoot = "SeptemMerkleHash"
-	//return "SeptemMerkleHash"
+func (b *Block) GetPrevBlockHash() string {
+	return b.PrevBlockHash
 }
 
-func (b *Block) CalculateBlockHash() {
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
+func (b *Block) GetHeight() int64 {
+	return b.Height
+}
+
+func (b *Block) GetTransactions() []Transaction {
+	return b.Transactions
+}
+
+func (b *Block) GetTimestamp() int64 {
+	return b.Timestamp
+}
+
+func (b *Block) CalculateMerkleRoot() {
+
+}
+
+func (b *Block) CalculateHash() {
+	buff := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buff)
+	b.CalculateMerkleRoot()
+
 	enc.Encode(b.Version)
 	enc.Encode(b.Height)
 	enc.Encode(b.Timestamp)
 	enc.Encode(b.Forger)
 	enc.Encode(b.PrevBlockHash)
-	enc.Encode(b.Transtions)
+	enc.Encode(b.MerkleRoot)
+	enc.Encode(b.Transactions)
 
-	hash := sha256.Sum256(buf.Bytes())
+	hash := sha256.Sum256(buff.Bytes())
 	b.Hash = hex.EncodeToString(hash[:])
-	fmt.Println("[CalculateBlockHash]", b.Hash)
 }
+
+//func RandomGenerateBlock() *Block {
+//	rand.Seed(time.Now().UnixNano())
+//
+//	block := &Block{
+//		Version:       rand.Int63n(2000),
+//		Height:        rand.Int63n(1000),
+//		Timestamp:     rand.Int63n(6000),
+//		Forger:        strconv.FormatInt(rand.Int63n(9000000000), 10),
+//		PrevBlockHash: strconv.FormatInt(rand.Int63n(9000000000), 10),
+//		Hash:          strconv.FormatInt(rand.Int63n(9000000000), 10),
+//		MerkleRoot:    strconv.FormatInt(rand.Int63n(9000000000), 10),
+//		Transactions:  make([]Transaction, 0),
+//	}
+//
+//	return block
+//}

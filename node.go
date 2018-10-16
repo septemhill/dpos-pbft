@@ -2,160 +2,145 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"strconv"
 	"time"
 )
 
-const (
-	numberOfConnectPeers = 5
-	listenPort           = 1111
-)
-
 type Node struct {
 	Id       int64
-	LastSlot int64
-	IsBad    bool
-	PeerIds  []int64
 	Peers    map[int64]*Peer
+	PeerIds  []int64
+	Listener net.Listener
 	Chain    *Blockchain
-	Server   net.Listener
+	Pbft     *Pbft
+	LastSlot int64
 }
 
-//NewServer create a listen port for peer nodes connection
-func NewServer(ctx context.Context, id int64) net.Listener {
-	listener, err := net.Listen("tcp", ":"+strconv.FormatInt(int64(listenPort+id), 10))
+func handleConnection(ctx context.Context, dec *gob.Decoder, node *Node) {
+	for {
+		var msg Message
+		ReceiveMessage(&msg, dec)
+		node.ProcessMessage(&msg)
+		//fmt.Println("NodeId", node.Id, msg)
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func NewServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
+	listener, err := net.Listen("tcp", ":"+strconv.FormatInt(int64(listenPort+node.Id), 10))
+
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		log.Println("NewServer Failed")
 	}
 
-	go func(ctx context.Context) {
+	go func(ctx context.Context, listener net.Listener) {
+		conns := make([]net.Conn, 0)
+	END_LISTENER:
 		for {
 			conn, err := listener.Accept()
+
 			if err != nil {
-				//fmt.Println("NOOOOOoooo")
-			} else {
+				log.Println("Accept Failed")
+			}
 
-				go func(ctx context.Context, conn net.Conn) {
-					for {
-						var msg Message
-						msg.Deserialize(conn)
-						switch msg.Type {
-						case MessageTypeInit:
-							fmt.Println("Node ", id, " connect to Peer ", msg.Body)
-						default:
-							fmt.Println("[OTHER MSG TYPE]", msg)
-							continue
-						}
-					}
-				}(ctx, conn)
+			conns = append(conns, conn)
+			dec := gob.NewDecoder(conn)
 
-				//				var msg Message
-				//				msg.Deserialize(conn)
-				//				switch msg.Type {
-				//				case MessageTypeInit:
-				//					fmt.Println("Node ", id, " connect to Peer ", msg.Body)
-				//				default:
-				//					fmt.Println("[OTHER MSG TYPE]", msg)
-				//					continue
-				//				}
+			go handleConnection(ctx, dec, node)
+
+			select {
+			case <-ctx.Done():
+				for _, v := range conns {
+					v.Close()
+				}
+				listener.Close()
+				fmt.Println("End all connections and listener")
+				break END_LISTENER
+			default:
 			}
 		}
-	}(ctx)
+	}(ctx, listener)
 
 	return listener
 }
 
-//NewNode create a forging node
-func NewNode(ctx context.Context, id int64, isBad bool) *Node {
-	return &Node{
+func NewNode(ctx context.Context, id int64) *Node {
+	node := &Node{
 		Id:      id,
-		IsBad:   isBad,
-		PeerIds: make([]int64, 0),
 		Peers:   make(map[int64]*Peer, 0),
-		Chain:   NewBlockchain(),
-		Server:  NewServer(ctx, id),
+		PeerIds: make([]int64, 0),
+	}
+
+	node.Listener = NewServer(ctx, node, listenPort)
+	node.Pbft = NewPbft(node)
+	node.Chain = NewBlockchain(node)
+	fmt.Println("Node ", node.Id, " be created")
+
+	return node
+}
+
+func (n *Node) Connect() {
+	rand.Seed(time.Now().UnixNano())
+
+	for i := 0; i < 5; i++ {
+		rand := rand.Int63n(10)
+		if rand != n.Id && n.Peers[rand] == nil {
+			peer := NewPeer(rand, n.Id, listenPort+rand)
+			n.Peers[rand] = peer
+			n.PeerIds = append(n.PeerIds, rand)
+		}
 	}
 }
 
-//Connect make current node connect to peers
-func (node *Node) Connect() {
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < numberOfConnectPeers; i++ {
-		rand := int64(rand.Intn(10))
-		if rand != node.Id && node.Peers[rand] != nil {
+func (n *Node) StartForging() {
+	for {
+		currentSlot := GetSlotNumber(0)
+		lastBlock := n.Chain.GetLastBlock()
+		lastSlot := GetSlotNumber(GetTime(lastBlock.GetTimestamp()))
+
+		if currentSlot == lastSlot {
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
-		peer := NewPeer(rand, listenPort+rand, node.Id)
+		if currentSlot == n.LastSlot {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
 
-		node.Peers[rand] = peer
-		node.PeerIds = append(node.PeerIds, rand)
+		delegateId := currentSlot % numberOfDelegates
+
+		if delegateId == n.Id {
+			newBlock := n.Chain.CreateBlock()
+
+			//n.Chain.AddBlock(newBlock)
+			n.Pbft.AddBlock(newBlock, GetSlotNumber(GetTime(newBlock.GetTimestamp())))
+
+			n.Broadcast(BlockMessage(n.Id, *newBlock))
+			fmt.Println("[NODE", n.Id, " NewBlock]", newBlock)
+			n.LastSlot = currentSlot
+		}
+
+		time.Sleep(time.Second * 1)
 	}
 }
 
-//PrintBlockchain print current node chain records
-func (node *Node) PrintBlockchain() {
-
-}
-
-func (node *Node) CreateBlock() Block {
-	lastBlock := node.Chain.GetLastBlock()
-	newBlock := Block{
-		Version:       1,
-		Height:        lastBlock.GetHeight() + 1,
-		Timestamp:     time.Now().Unix(),
-		PrevBlockHash: lastBlock.GetPrevBlockHash(),
-		Forger:        strconv.FormatInt(node.Id, 10),
-	}
-
-	newBlock.CalculateBlockHash()
-	newBlock.CalculateMerkleHash()
-
-	return newBlock
-}
-
-func (node *Node) AddBlock(block Block) {
-
-}
-
-//Start start forging
-func (node *Node) Start() {
-	//node.Chain.
-	currentSlot := GetSlotNumber(0)
-	lastBlock := node.Chain.GetLastBlock()
-	lastSlot := GetSlotNumber(GetTime(lastBlock.GetTimestamp()))
-
-	if currentSlot == lastSlot {
-		//Sleep()
-	}
-	if currentSlot == node.LastSlot {
-		//Sleep()
-	}
-
-	delegateId := currentSlot % int64(Delegates)
-
-	if node.Id == delegateId {
-		var msg Message
-		block := node.CreateBlock()
-		node.Broadcast(*msg.BlockMessage(block))
-		node.AddBlock(block)
-		node.LastSlot = currentSlot
+func (n *Node) Broadcast(msg *Message) {
+	for _, peer := range n.Peers {
+		SendMessage(msg, peer.ConnEncoder, n.Id)
 	}
 }
 
-//Stop stop forging
-func (node *Node) Stop() {
-
-}
-
-//Broadcast send message to peer nodes
-func (node *Node) Broadcast(msg Message) {
-	for _, peer := range node.Peers {
-		//fmt.Println(peer)
-		msg.Serialize(peer.Conn)
+func (n *Node) ProcessMessage(msg *Message) {
+	switch msg.Type {
+	case MessageTypeInit:
+	case MessageTypeBlock:
+	default:
+		n.Pbft.ProcessStageMessage(msg)
 	}
 }
