@@ -26,14 +26,16 @@ type ConsensusInfo struct {
 }
 
 type Pbft struct {
-	Mutex            sync.Mutex
+	Mutex            sync.RWMutex
 	State            int64
 	Node             *Node
 	PendingBlocks    map[string]*Block
 	CurrentSlot      int64
 	PrepareInfo      *ConsensusInfo
 	CommitInfos      map[string]*ConsensusInfo
-	PreparehashCache map[string]struct{}
+	PrepareHashCache map[string]struct{}
+	CommitHashCache  map[string]struct{}
+	Chain            *Blockchain
 }
 
 func NewConsensusInfo() *ConsensusInfo {
@@ -51,7 +53,9 @@ func NewPbft(node *Node) *Pbft {
 		CurrentSlot:      0,
 		PrepareInfo:      NewConsensusInfo(),
 		CommitInfos:      make(map[string]*ConsensusInfo, 0),
-		PreparehashCache: make(map[string]struct{}, 0),
+		PrepareHashCache: make(map[string]struct{}, 0),
+		CommitHashCache:  make(map[string]struct{}, 0),
+		Chain:            node.Chain,
 	}
 
 	return pbft
@@ -87,8 +91,26 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 	}
 }
 
-func (p *Pbft) ClearState() {
+//func (p *Pbft) CommitBlock(hash string) {
+//	fmt.Println("[Commit Block]", hash)
+//	block := p.PendingBlocks[hash]
+//}
 
+func (p *Pbft) ClearState() {
+	p.State = PBFTStateNone
+	p.PrepareInfo = NewConsensusInfo()
+	p.Mutex.Lock()
+	p.CommitInfos = make(map[string]*ConsensusInfo)
+	p.PendingBlocks = make(map[string]*Block)
+	p.Mutex.Unlock()
+
+	//	for k, _ := range p.CommitInfos {
+	//		delete(p.CommitInfos, k)
+	//	}
+	//
+	//	for k, _ := range p.PendingBlocks {
+	//		delete(p.PendingBlocks, k)
+	//	}
 }
 
 func (p *Pbft) handlePrepareMessage(msg *Message) {
@@ -96,9 +118,13 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 	stageMsg := msg.Body.(StageMessage)
 	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
 
-	if _, ok := p.PreparehashCache[cacheKey]; !ok {
+	p.Mutex.RLock()
+	_, ok := p.PrepareHashCache[cacheKey]
+	p.Mutex.RUnlock()
+
+	if !ok {
 		p.Mutex.Lock()
-		p.PreparehashCache[cacheKey] = struct{}{}
+		p.PrepareHashCache[cacheKey] = struct{}{}
 		p.Mutex.Unlock()
 		p.Node.Broadcast(msg)
 	} else {
@@ -109,7 +135,9 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 
 	if p.State == PBFTStatePrepare && stageMsg.Hash == p.PrepareInfo.Hash &&
 		stageMsg.Height == p.PrepareInfo.Height && !voted {
+		p.Mutex.Lock()
 		p.PrepareInfo.Votes[stageMsg.Signer] = struct{}{}
+		p.Mutex.Unlock()
 		p.PrepareInfo.VotesNumber++
 
 		if p.PrepareInfo.VotesNumber > maxFPNode {
@@ -131,12 +159,53 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 			p.Node.Broadcast(CommitMessage(p.Node.Id, stageMsg))
 		}
 	}
-
-	//fmt.Println("[CACHE KEY]", cacheKey)
 }
 
 func (p *Pbft) handleCommitMessage(msg *Message) {
-	fmt.Println("[Commit Message]", msg.Body)
+	//fmt.Println("[Commit Message]", msg.Body)
+	stageMsg := msg.Body.(StageMessage)
+	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
+
+	p.Mutex.RLock()
+	_, ok := p.CommitHashCache[cacheKey]
+	p.Mutex.RUnlock()
+
+	if !ok {
+		p.Mutex.Lock()
+		p.CommitHashCache[cacheKey] = struct{}{}
+		p.Mutex.Unlock()
+		p.Node.Broadcast(msg)
+	} else {
+		return
+	}
+
+	p.Mutex.RLock()
+	commitInfo := p.CommitInfos[stageMsg.Hash]
+	p.Mutex.RUnlock()
+
+	if commitInfo != nil {
+		if _, ok := commitInfo.Votes[stageMsg.Signer]; !ok {
+			p.Mutex.Lock()
+			commitInfo.Votes[stageMsg.Signer] = struct{}{}
+			p.Mutex.Unlock()
+			commitInfo.VotesNumber++
+			//fmt.Println("Number of Votes for Commit", commitInfo)
+			if commitInfo.VotesNumber > 2*maxFPNode {
+				p.Mutex.RLock()
+				p.Chain.CommitBlock(p.PendingBlocks[stageMsg.Hash])
+				p.Mutex.RUnlock()
+				p.ClearState()
+			}
+		}
+	} else {
+		commitInfo := NewConsensusInfo()
+		commitInfo.Hash = stageMsg.Hash
+		commitInfo.Height = stageMsg.Height
+		commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+		p.Mutex.Lock()
+		p.CommitInfos[stageMsg.Hash] = commitInfo
+		p.Mutex.Unlock()
+	}
 }
 
 func (p *Pbft) ProcessStageMessage(msg *Message) {

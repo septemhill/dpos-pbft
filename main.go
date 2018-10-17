@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,10 +11,10 @@ import (
 )
 
 const (
-	numberOfNodes     int   = 20
-	numberOfPeers     int64 = 5
+	numberOfNodes     int   = 21
+	numberOfPeers     int   = 14
 	listenPort        int64 = 1111
-	numberOfDelegates int64 = 20
+	numberOfDelegates int64 = 21
 	slotTimeInterval  int64 = 5
 )
 
@@ -42,6 +43,7 @@ func main() {
 
 	nodes := make([]*Node, 0)
 
+	fmt.Println("[Maximum FP Node]", maxFPNode)
 	for i := 0; i < numberOfNodes; i++ {
 		node := NewNode(ctx, int64(i))
 		nodes = append(nodes, node)

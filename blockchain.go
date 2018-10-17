@@ -1,13 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
 )
 
 type Blockchain struct {
-	Mutex    sync.Mutex
+	Mutex    sync.RWMutex
 	Node     *Node
 	Pbft     *Pbft
 	Blocks   []*Block
@@ -48,14 +49,24 @@ func (bc *Blockchain) CreateBlock() *Block {
 	return b
 }
 
+func (bc *Blockchain) CommitBlock(block *Block) {
+	bc.Blocks = append(bc.Blocks, block)
+	bc.BlockMap[block.GetHash()] = struct{}{}
+	//fmt.Println("[Blocks]", bc.Blocks)
+	for i := 0; i < len(bc.Blocks); i++ {
+		fmt.Print("%s -> ", bc.Blocks[i].GetHash())
+	}
+	fmt.Println()
+}
+
 func (bc *Blockchain) GetLastBlock() *Block {
 	return bc.Blocks[len(bc.Blocks)-1]
 }
 
 func (bc *Blockchain) HasBlock(hash string) bool {
-	bc.Mutex.Lock()
+	bc.Mutex.RLock()
 	_, ok := bc.BlockMap[hash]
-	bc.Mutex.Unlock()
+	bc.Mutex.RUnlock()
 	return ok
 }
 

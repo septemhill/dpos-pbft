@@ -79,8 +79,8 @@ func NewNode(ctx context.Context, id int64) *Node {
 	}
 
 	node.Listener = NewServer(ctx, node, listenPort)
-	node.Pbft = NewPbft(node)
 	node.Chain = NewBlockchain(node)
+	node.Pbft = NewPbft(node)
 	fmt.Println("Node ", node.Id, " be created")
 
 	return node
@@ -89,8 +89,8 @@ func NewNode(ctx context.Context, id int64) *Node {
 func (n *Node) Connect() {
 	rand.Seed(time.Now().UnixNano())
 
-	for i := 0; i < 5; i++ {
-		rand := rand.Int63n(10)
+	for i := 0; i < numberOfPeers; i++ {
+		rand := rand.Int63n(int64(numberOfPeers))
 		if rand != n.Id && n.Peers[rand] == nil {
 			peer := NewPeer(rand, n.Id, listenPort+rand)
 			n.Mutex.Lock()
