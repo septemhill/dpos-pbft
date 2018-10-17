@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+//Node n
 type Node struct {
 	Mutex    sync.Mutex
 	Id       int64
@@ -33,7 +34,7 @@ func handleConnection(ctx context.Context, conn net.Conn, dec *gob.Decoder, node
 	}
 }
 
-func NewServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
+func newServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
 	listener, err := net.Listen("tcp", ":"+strconv.FormatInt(int64(listenPort+node.Id), 10))
 
 	if err != nil {
@@ -71,6 +72,7 @@ func NewServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
 	return listener
 }
 
+//NewNode create a new node
 func NewNode(ctx context.Context, id int64) *Node {
 	node := &Node{
 		Id:      id,
@@ -78,7 +80,7 @@ func NewNode(ctx context.Context, id int64) *Node {
 		PeerIds: make([]int64, 0),
 	}
 
-	node.Listener = NewServer(ctx, node, listenPort)
+	node.Listener = newServer(ctx, node, listenPort)
 	node.Chain = NewBlockchain(node)
 	node.Pbft = NewPbft(node)
 	fmt.Println("Node ", node.Id, " be created")
@@ -86,6 +88,7 @@ func NewNode(ctx context.Context, id int64) *Node {
 	return node
 }
 
+//Connect connect to peers
 func (n *Node) Connect() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -101,6 +104,7 @@ func (n *Node) Connect() {
 	}
 }
 
+//StartForging start forging
 func (n *Node) StartForging() {
 	for {
 		currentSlot := GetSlotNumber(0)
@@ -123,7 +127,7 @@ func (n *Node) StartForging() {
 			newBlock := n.Chain.CreateBlock()
 
 			//n.Chain.AddBlock(newBlock)
-			n.Broadcast(BlockMessage(n.Id, *newBlock))
+			n.Broadcast(BlockMessage(*newBlock))
 			n.Pbft.AddBlock(newBlock, GetSlotNumber(GetTime(newBlock.GetTimestamp())))
 
 			fmt.Println("[NODE", n.Id, " NewBlock]", newBlock)
@@ -134,12 +138,14 @@ func (n *Node) StartForging() {
 	}
 }
 
+//Broadcast broadcast message to peers
 func (n *Node) Broadcast(msg *Message) {
 	for _, peer := range n.Peers {
 		SendMessage(msg, peer.ConnEncoder, n.Id)
 	}
 }
 
+//ProcessMessage process message from message
 func (n *Node) ProcessMessage(msg *Message, conn net.Conn) {
 	switch msg.Type {
 	case MessageTypeInit:

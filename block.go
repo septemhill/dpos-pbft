@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+//Block B
 type Block struct {
 	Version       int64
 	Height        int64
@@ -19,6 +20,7 @@ type Block struct {
 	Transactions  []Transaction
 }
 
+//NewGenesisBlock g
 func NewGenesisBlock() *Block {
 	b := &Block{
 		Version:       1,
@@ -35,34 +37,42 @@ func NewGenesisBlock() *Block {
 	return b
 }
 
+//GetHash return hash of block
 func (b *Block) GetHash() string {
 	return b.Hash
 }
 
+//GetPrevBlockHash return previous block hash of block
 func (b *Block) GetPrevBlockHash() string {
 	return b.PrevBlockHash
 }
 
+//GetHeight return height of block
 func (b *Block) GetHeight() int64 {
 	return b.Height
 }
 
+//GetTransactions return transactions of block
 func (b *Block) GetTransactions() []Transaction {
 	return b.Transactions
 }
 
+//GetTimestamp return timestamp of block
 func (b *Block) GetTimestamp() int64 {
 	return b.Timestamp
 }
 
+//GetForger return forger of block
 func (b *Block) GetForger() string {
 	return b.Forger
 }
 
+//CalculateMerkleRoot calculte block merkle root hash value
 func (b *Block) CalculateMerkleRoot() {
 
 }
 
+//CalculateHash calculate block hash value
 func (b *Block) CalculateHash() {
 	buff := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buff)

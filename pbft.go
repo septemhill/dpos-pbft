@@ -18,6 +18,7 @@ const (
 	PBFTStateCommit
 )
 
+//ConsensusInfo c
 type ConsensusInfo struct {
 	Height      int64
 	Hash        string
@@ -25,6 +26,7 @@ type ConsensusInfo struct {
 	Votes       map[string]struct{}
 }
 
+//Pbft p
 type Pbft struct {
 	Mutex            sync.RWMutex
 	State            int64
@@ -38,20 +40,21 @@ type Pbft struct {
 	Chain            *Blockchain
 }
 
-func NewConsensusInfo() *ConsensusInfo {
+func newConsensusInfo() *ConsensusInfo {
 	return &ConsensusInfo{
 		VotesNumber: 1,
 		Votes:       make(map[string]struct{}, 0),
 	}
 }
 
+//NewPbft create a new pbft instance
 func NewPbft(node *Node) *Pbft {
 	pbft := &Pbft{
 		State:            PBFTStateNone,
 		Node:             node,
 		PendingBlocks:    make(map[string]*Block, 0),
 		CurrentSlot:      0,
-		PrepareInfo:      NewConsensusInfo(),
+		PrepareInfo:      newConsensusInfo(),
 		CommitInfos:      make(map[string]*ConsensusInfo, 0),
 		PrepareHashCache: make(map[string]struct{}, 0),
 		CommitHashCache:  make(map[string]struct{}, 0),
@@ -61,6 +64,7 @@ func NewPbft(node *Node) *Pbft {
 	return pbft
 }
 
+//AddBlock made block into prepare state
 func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 	hash := block.GetHash()
 	p.Mutex.Lock()
@@ -87,13 +91,14 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 			Signer: strconv.FormatInt(p.Node.Id, 10),
 		}
 
-		p.Node.Broadcast(PrepareMessage(p.Node.Id, stageMsg))
+		p.Node.Broadcast(PrepareMessage(stageMsg))
 	}
 }
 
+//ClearState clear state
 func (p *Pbft) ClearState() {
 	p.State = PBFTStateNone
-	p.PrepareInfo = NewConsensusInfo()
+	p.PrepareInfo = newConsensusInfo()
 	p.Mutex.Lock()
 	p.CommitInfos = make(map[string]*ConsensusInfo)
 	p.PendingBlocks = make(map[string]*Block)
@@ -133,7 +138,7 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		if p.PrepareInfo.VotesNumber > maxFPNode {
 			fmt.Println("node", p.Node.Id, "change state to commit")
 			p.State = PBFTStateCommit
-			commitInfo := NewConsensusInfo()
+			commitInfo := newConsensusInfo()
 			commitInfo.Hash = p.PrepareInfo.Hash
 			commitInfo.Height = p.PrepareInfo.Height
 			commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
@@ -147,7 +152,7 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 				Signer: strconv.FormatInt(p.Node.Id, 10),
 			}
 
-			p.Node.Broadcast(CommitMessage(p.Node.Id, stageMsg))
+			p.Node.Broadcast(CommitMessage(stageMsg))
 		}
 	}
 }
@@ -193,7 +198,7 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 			}
 		}
 	} else {
-		commitInfo := NewConsensusInfo()
+		commitInfo := newConsensusInfo()
 		commitInfo.Hash = stageMsg.Hash
 		commitInfo.Height = stageMsg.Height
 		commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
@@ -203,6 +208,7 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 	}
 }
 
+//ProcessStageMessage process prepare and commit message
 func (p *Pbft) ProcessStageMessage(msg *Message) {
 	switch msg.Type {
 	case MessageTypePrepare:

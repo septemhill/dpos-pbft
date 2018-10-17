@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+//Blockchain s
 type Blockchain struct {
 	Mutex    sync.RWMutex
 	Node     *Node
@@ -15,6 +16,7 @@ type Blockchain struct {
 	BlockMap map[string]struct{}
 }
 
+//NewBlockchain create a new blockchain
 func NewBlockchain(node *Node) *Blockchain {
 	genesisBlock := NewGenesisBlock()
 
@@ -33,6 +35,7 @@ func NewBlockchain(node *Node) *Blockchain {
 	return bc
 }
 
+//CreateBlock create a block
 func (bc *Blockchain) CreateBlock() *Block {
 	lastBlock := bc.GetLastBlock()
 	b := &Block{
@@ -57,16 +60,19 @@ func (bc *Blockchain) printBlockchain() {
 	fmt.Println()
 }
 
+//CommitBlock add block into chain
 func (bc *Blockchain) CommitBlock(block *Block) {
 	bc.Blocks = append(bc.Blocks, block)
 	bc.BlockMap[block.GetHash()] = struct{}{}
 	bc.printBlockchain()
 }
 
+//GetLastBlock get last block of the chain
 func (bc *Blockchain) GetLastBlock() *Block {
 	return bc.Blocks[len(bc.Blocks)-1]
 }
 
+//HasBlock check the block whether in the chain or not
 func (bc *Blockchain) HasBlock(hash string) bool {
 	bc.Mutex.RLock()
 	_, ok := bc.BlockMap[hash]
@@ -74,6 +80,7 @@ func (bc *Blockchain) HasBlock(hash string) bool {
 	return ok
 }
 
+//ValidateBlock valiate  block
 func (bc *Blockchain) ValidateBlock(block *Block) bool {
 	lastBlock := bc.GetLastBlock()
 	return block.GetHeight() == lastBlock.GetHeight()+1 &&

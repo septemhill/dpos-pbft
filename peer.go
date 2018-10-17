@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+//Peer p
 type Peer struct {
 	Id          int64
 	NodeId      int64
@@ -14,6 +15,7 @@ type Peer struct {
 	ConnEncoder *gob.Encoder
 }
 
+//NewPeer create a new peer
 func NewPeer(peerId, nodeId, port int64) *Peer {
 	conn, err := net.Dial("tcp", ":"+strconv.FormatInt(port, 10))
 

@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	numberOfNodes     int   = 21
-	numberOfPeers     int   = 5
+	numberOfNodes     int   = 7
+	numberOfPeers     int   = 3
 	listenPort        int64 = 11111
-	numberOfDelegates int64 = 21
-	slotTimeInterval  int64 = 30
+	numberOfDelegates int64 = 7
+	slotTimeInterval  int64 = 10
 )
 
 func gobInterfaceRegister() {
