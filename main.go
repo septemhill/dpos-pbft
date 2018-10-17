@@ -16,7 +16,7 @@ const (
 	numberOfPeers     int   = 3
 	listenPort        int64 = 11111
 	numberOfDelegates int64 = 7
-	slotTimeInterval  int64 = 10
+	slotTimeInterval  int64 = 5
 )
 
 func gobInterfaceRegister() {
@@ -42,6 +42,8 @@ func main() {
 		sysdone <- struct{}{}
 	}()
 
+	fmt.Println("MAX FP Node", maxFPNode)
+
 	nodes := make([]*Node, 0)
 
 	for i := 0; i < numberOfNodes; i++ {
@@ -49,24 +51,26 @@ func main() {
 		nodes = append(nodes, node)
 	}
 
+	fmt.Println("===================================")
+	time.Sleep(time.Second * 1)
+
 	for i := 0; i < numberOfNodes; i++ {
 		nodes[i].Connect()
 	}
+
+	fmt.Println("===================================")
+	time.Sleep(time.Second * 1)
 
 	for i := 0; i < numberOfNodes; i++ {
 		fmt.Println("NodeId:", i, nodes[i].Peers)
 	}
 
+	fmt.Println("===================================")
 	time.Sleep(time.Second * 1)
+
 	for i := 0; i < numberOfNodes; i++ {
 		go nodes[i].StartForging()
 	}
-
-	//for i := 0; i < numberOfNodes; i++ {
-	//	msg := BlockMessage(int64(i), *RandomGenerateBlock())
-	//	nodes[i].Broadcast(msg)
-	//	time.Sleep(time.Second * 2)
-	//}
 
 	<-sysdone
 	cancel()

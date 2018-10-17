@@ -63,7 +63,9 @@ func (bc *Blockchain) printBlockchain() {
 //CommitBlock add block into chain
 func (bc *Blockchain) CommitBlock(block *Block) {
 	bc.Blocks = append(bc.Blocks, block)
+	bc.Mutex.Lock()
 	bc.BlockMap[block.GetHash()] = struct{}{}
+	bc.Mutex.Unlock()
 	bc.printBlockchain()
 }
 

@@ -89,20 +89,3 @@ func (b *Block) CalculateHash() {
 	hash := sha256.Sum256(buff.Bytes())
 	b.Hash = hex.EncodeToString(hash[:])
 }
-
-//func RandomGenerateBlock() *Block {
-//	rand.Seed(time.Now().UnixNano())
-//
-//	block := &Block{
-//		Version:       rand.Int63n(2000),
-//		Height:        rand.Int63n(1000),
-//		Timestamp:     rand.Int63n(6000),
-//		Forger:        strconv.FormatInt(rand.Int63n(9000000000), 10),
-//		PrevBlockHash: strconv.FormatInt(rand.Int63n(9000000000), 10),
-//		Hash:          strconv.FormatInt(rand.Int63n(9000000000), 10),
-//		MerkleRoot:    strconv.FormatInt(rand.Int63n(9000000000), 10),
-//		Transactions:  make([]Transaction, 0),
-//	}
-//
-//	return block
-//}

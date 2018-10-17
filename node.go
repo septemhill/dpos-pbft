@@ -14,7 +14,7 @@ import (
 
 //Node n
 type Node struct {
-	Mutex    sync.Mutex
+	Mutex    sync.RWMutex
 	Id       int64
 	Peers    map[int64]*Peer
 	PeerIds  []int64
@@ -83,7 +83,7 @@ func NewNode(ctx context.Context, id int64) *Node {
 	node.Listener = newServer(ctx, node, listenPort)
 	node.Chain = NewBlockchain(node)
 	node.Pbft = NewPbft(node)
-	fmt.Println("Node ", node.Id, " be created")
+	//fmt.Println("Node ", node.Id, " be created")
 
 	return node
 }
@@ -94,7 +94,10 @@ func (n *Node) Connect() {
 
 	for i := 0; i < numberOfPeers; i++ {
 		rand := rand.Int63n(int64(numberOfPeers))
-		if rand != n.Id && n.Peers[rand] == nil {
+		n.Mutex.RLock()
+		_, ok := n.Peers[rand]
+		n.Mutex.RUnlock()
+		if rand != n.Id && !ok {
 			peer := NewPeer(rand, n.Id, listenPort+rand)
 			n.Mutex.Lock()
 			n.Peers[rand] = peer
@@ -126,8 +129,7 @@ func (n *Node) StartForging() {
 		if delegateId == n.Id {
 			newBlock := n.Chain.CreateBlock()
 
-			//n.Chain.AddBlock(newBlock)
-			n.Broadcast(BlockMessage(*newBlock))
+			n.Broadcast(BlockMessage(n.Id, *newBlock))
 			n.Pbft.AddBlock(newBlock, GetSlotNumber(GetTime(newBlock.GetTimestamp())))
 
 			fmt.Println("[NODE", n.Id, " NewBlock]", newBlock)
@@ -150,18 +152,22 @@ func (n *Node) ProcessMessage(msg *Message, conn net.Conn) {
 	switch msg.Type {
 	case MessageTypeInit:
 		peerId := msg.Body.(int64)
+		n.Mutex.RLock()
 		_, ok := n.Peers[peerId]
+		n.Mutex.RUnlock()
 		if !ok {
+			n.Mutex.Lock()
 			n.Peers[peerId] = &Peer{
 				Id:          peerId,
 				NodeId:      n.Id,
 				Conn:        conn,
 				ConnEncoder: gob.NewEncoder(conn),
 			}
+			n.Mutex.Unlock()
 		}
 	case MessageTypeBlock:
 		block := msg.Body.(Block)
-		//fmt.Println("NodeId", n.Id, "receive block message:", block)
+		fmt.Println("NodeId:", n.Id, msg.RoutePath)
 		if !n.Chain.HasBlock(block.GetHash()) && n.Chain.ValidateBlock(&block) {
 			n.Broadcast(msg)
 			n.Pbft.AddBlock(&block, GetSlotNumber(GetTime(block.GetTimestamp())))

@@ -14,8 +14,9 @@ const (
 
 //Message m
 type Message struct {
-	Type int
-	Body interface{}
+	Type      int
+	Body      interface{}
+	RoutePath []int64
 }
 
 //StageMessage s
@@ -27,34 +28,43 @@ type StageMessage struct {
 
 //InitMessage wrap up initialize message
 func InitMessage(nodeId int64) *Message {
-	m := &Message{Type: MessageTypeInit}
+	m := &Message{Type: MessageTypeInit, RoutePath: make([]int64, 0)}
 	m.Body = nodeId
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
 //BlockMessage wrap up block message
-func BlockMessage(block Block) *Message {
-	m := &Message{Type: MessageTypeBlock}
+func BlockMessage(nodeId int64, block Block) *Message {
+	m := &Message{Type: MessageTypeBlock, RoutePath: make([]int64, 0)}
 	m.Body = block
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
 //PrepareMessage wrap up prepare message
-func PrepareMessage(stage StageMessage) *Message {
-	m := &Message{Type: MessageTypePrepare}
+func PrepareMessage(nodeId int64, stage StageMessage) *Message {
+	m := &Message{Type: MessageTypePrepare, RoutePath: make([]int64, 0)}
 	m.Body = stage
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
 //CommitMessage wrap up commit message
-func CommitMessage(stage StageMessage) *Message {
-	m := &Message{Type: MessageTypeCommit}
+func CommitMessage(nodeId int64, stage StageMessage) *Message {
+	m := &Message{Type: MessageTypeCommit, RoutePath: make([]int64, 0)}
 	m.Body = stage
+	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }
 
 //SendMessage serialize message and send data by socket
 func SendMessage(msg *Message, enc *gob.Encoder, nodeId int64) error {
+	//Trace routing path (DEBUG)
+	if msg.RoutePath[len(msg.RoutePath)-1] != nodeId {
+		msg.RoutePath = append(msg.RoutePath, nodeId)
+	}
+
 	err := enc.Encode(msg)
 	if err != nil {
 		log.Println("[Send Message]", err)

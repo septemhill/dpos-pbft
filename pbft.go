@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var (
@@ -84,6 +85,7 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 		p.Mutex.Lock()
 		p.PrepareInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
 		p.Mutex.Unlock()
+		fmt.Println("node", p.Node.Id, "change state to prepare")
 
 		stageMsg := StageMessage{
 			Height: block.GetHeight(),
@@ -91,7 +93,11 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 			Signer: strconv.FormatInt(p.Node.Id, 10),
 		}
 
-		p.Node.Broadcast(PrepareMessage(stageMsg))
+		go func() {
+			time.Sleep(time.Millisecond * 100)
+			p.Node.Broadcast(PrepareMessage(p.Node.Id, stageMsg))
+		}()
+		//p.Node.Broadcast(PrepareMessage(stageMsg))
 	}
 }
 
@@ -152,7 +158,7 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 				Signer: strconv.FormatInt(p.Node.Id, 10),
 			}
 
-			p.Node.Broadcast(CommitMessage(stageMsg))
+			p.Node.Broadcast(CommitMessage(p.Node.Id, stageMsg))
 		}
 	}
 }
