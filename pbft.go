@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"strconv"
+	"sync"
 )
 
 var (
@@ -25,6 +26,7 @@ type ConsensusInfo struct {
 }
 
 type Pbft struct {
+	Mutex            sync.Mutex
 	State            int64
 	Node             *Node
 	PendingBlocks    map[string]*Block
@@ -57,7 +59,9 @@ func NewPbft(node *Node) *Pbft {
 
 func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 	hash := block.GetHash()
+	p.Mutex.Lock()
 	p.PendingBlocks[hash] = block
+	p.Mutex.Unlock()
 
 	if slotNumber > p.CurrentSlot {
 		p.ClearState()
@@ -69,7 +73,9 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 		p.PrepareInfo.Height = block.GetHeight()
 		p.PrepareInfo.Hash = block.GetHash()
 		p.PrepareInfo.VotesNumber = 1
+		p.Mutex.Lock()
 		p.PrepareInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+		p.Mutex.Unlock()
 
 		stageMsg := StageMessage{
 			Height: block.GetHeight(),
@@ -86,12 +92,14 @@ func (p *Pbft) ClearState() {
 }
 
 func (p *Pbft) handlePrepareMessage(msg *Message) {
-	fmt.Printf("NodeId %d receive prepare message: %s\n", p.Node.Id, msg.Body.(StageMessage).Hash)
+	//fmt.Printf("NodeId %d receive prepare message: %s\n", p.Node.Id, msg.Body.(StageMessage).Hash)
 	stageMsg := msg.Body.(StageMessage)
 	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
 
 	if _, ok := p.PreparehashCache[cacheKey]; !ok {
+		p.Mutex.Lock()
 		p.PreparehashCache[cacheKey] = struct{}{}
+		p.Mutex.Unlock()
 		p.Node.Broadcast(msg)
 	} else {
 		return
@@ -110,7 +118,9 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 			commitInfo.Hash = p.PrepareInfo.Hash
 			commitInfo.Height = p.PrepareInfo.Height
 			commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+			p.Mutex.Lock()
 			p.CommitInfos[commitInfo.Hash] = commitInfo
+			p.Mutex.Unlock()
 
 			stageMsg := StageMessage{
 				Height: p.PrepareInfo.Height,

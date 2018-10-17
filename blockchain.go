@@ -2,10 +2,12 @@ package main
 
 import (
 	"strconv"
+	"sync"
 	"time"
 )
 
 type Blockchain struct {
+	Mutex    sync.Mutex
 	Node     *Node
 	Pbft     *Pbft
 	Blocks   []*Block
@@ -23,7 +25,9 @@ func NewBlockchain(node *Node) *Blockchain {
 	}
 
 	bc.Blocks = append(bc.Blocks, genesisBlock)
+	bc.Mutex.Lock()
 	bc.BlockMap[genesisBlock.GetHash()] = struct{}{}
+	bc.Mutex.Unlock()
 
 	return bc
 }
@@ -49,7 +53,9 @@ func (bc *Blockchain) GetLastBlock() *Block {
 }
 
 func (bc *Blockchain) HasBlock(hash string) bool {
+	bc.Mutex.Lock()
 	_, ok := bc.BlockMap[hash]
+	bc.Mutex.Unlock()
 	return ok
 }
 

@@ -8,10 +8,12 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
 type Node struct {
+	Mutex    sync.Mutex
 	Id       int64
 	Peers    map[int64]*Peer
 	PeerIds  []int64
@@ -91,7 +93,9 @@ func (n *Node) Connect() {
 		rand := rand.Int63n(10)
 		if rand != n.Id && n.Peers[rand] == nil {
 			peer := NewPeer(rand, n.Id, listenPort+rand)
+			n.Mutex.Lock()
 			n.Peers[rand] = peer
+			n.Mutex.Unlock()
 			n.PeerIds = append(n.PeerIds, rand)
 		}
 	}
@@ -119,9 +123,9 @@ func (n *Node) StartForging() {
 			newBlock := n.Chain.CreateBlock()
 
 			//n.Chain.AddBlock(newBlock)
+			n.Broadcast(BlockMessage(n.Id, *newBlock))
 			n.Pbft.AddBlock(newBlock, GetSlotNumber(GetTime(newBlock.GetTimestamp())))
 
-			n.Broadcast(BlockMessage(n.Id, *newBlock))
 			fmt.Println("[NODE", n.Id, " NewBlock]", newBlock)
 			n.LastSlot = currentSlot
 		}
@@ -140,7 +144,12 @@ func (n *Node) ProcessMessage(msg *Message) {
 	switch msg.Type {
 	case MessageTypeInit:
 	case MessageTypeBlock:
-
+		block := msg.Body.(Block)
+		//fmt.Println("NodeId", n.Id, "receive block message:", block)
+		if !n.Chain.HasBlock(block.GetHash()) && n.Chain.ValidateBlock(&block) {
+			n.Broadcast(msg)
+			n.Pbft.AddBlock(&block, GetSlotNumber(GetTime(block.GetTimestamp())))
+		}
 	default:
 		n.Pbft.ProcessStageMessage(msg)
 	}
