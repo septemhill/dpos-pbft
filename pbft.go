@@ -91,11 +91,6 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 	}
 }
 
-//func (p *Pbft) CommitBlock(hash string) {
-//	fmt.Println("[Commit Block]", hash)
-//	block := p.PendingBlocks[hash]
-//}
-
 func (p *Pbft) ClearState() {
 	p.State = PBFTStateNone
 	p.PrepareInfo = NewConsensusInfo()
@@ -103,14 +98,6 @@ func (p *Pbft) ClearState() {
 	p.CommitInfos = make(map[string]*ConsensusInfo)
 	p.PendingBlocks = make(map[string]*Block)
 	p.Mutex.Unlock()
-
-	//	for k, _ := range p.CommitInfos {
-	//		delete(p.CommitInfos, k)
-	//	}
-	//
-	//	for k, _ := range p.PendingBlocks {
-	//		delete(p.PendingBlocks, k)
-	//	}
 }
 
 func (p *Pbft) handlePrepareMessage(msg *Message) {
@@ -131,7 +118,9 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		return
 	}
 
+	p.Mutex.RLock()
 	_, voted := p.PrepareInfo.Votes[stageMsg.Signer]
+	p.Mutex.RUnlock()
 
 	if p.State == PBFTStatePrepare && stageMsg.Hash == p.PrepareInfo.Hash &&
 		stageMsg.Height == p.PrepareInfo.Height && !voted {
@@ -139,8 +128,10 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		p.PrepareInfo.Votes[stageMsg.Signer] = struct{}{}
 		p.Mutex.Unlock()
 		p.PrepareInfo.VotesNumber++
+		fmt.Println("pbft", p.Node.Id, "prepare votes", p.PrepareInfo.VotesNumber)
 
 		if p.PrepareInfo.VotesNumber > maxFPNode {
+			fmt.Println("node", p.Node.Id, "change state to commit")
 			p.State = PBFTStateCommit
 			commitInfo := NewConsensusInfo()
 			commitInfo.Hash = p.PrepareInfo.Hash
@@ -189,11 +180,15 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 			commitInfo.Votes[stageMsg.Signer] = struct{}{}
 			p.Mutex.Unlock()
 			commitInfo.VotesNumber++
-			//fmt.Println("Number of Votes for Commit", commitInfo)
+			fmt.Println("pbft", p.Node.Id, "commit votes", commitInfo.VotesNumber)
 			if commitInfo.VotesNumber > 2*maxFPNode {
 				p.Mutex.RLock()
-				p.Chain.CommitBlock(p.PendingBlocks[stageMsg.Hash])
+				_, ok := p.PendingBlocks[stageMsg.Hash]
 				p.Mutex.RUnlock()
+
+				if ok {
+					p.Chain.CommitBlock(p.PendingBlocks[stageMsg.Hash])
+				}
 				p.ClearState()
 			}
 		}

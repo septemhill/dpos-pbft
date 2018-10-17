@@ -49,14 +49,18 @@ func (bc *Blockchain) CreateBlock() *Block {
 	return b
 }
 
+func (bc *Blockchain) printBlockchain() {
+	fmt.Printf("NodeId %d ", bc.Node.Id)
+	for i := 0; i < len(bc.Blocks); i++ {
+		fmt.Printf("%s -> ", bc.Blocks[i].GetForger())
+	}
+	fmt.Println()
+}
+
 func (bc *Blockchain) CommitBlock(block *Block) {
 	bc.Blocks = append(bc.Blocks, block)
 	bc.BlockMap[block.GetHash()] = struct{}{}
-	//fmt.Println("[Blocks]", bc.Blocks)
-	for i := 0; i < len(bc.Blocks); i++ {
-		fmt.Print("%s -> ", bc.Blocks[i].GetHash())
-	}
-	fmt.Println()
+	bc.printBlockchain()
 }
 
 func (bc *Blockchain) GetLastBlock() *Block {

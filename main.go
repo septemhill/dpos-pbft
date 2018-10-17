@@ -8,14 +8,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 const (
 	numberOfNodes     int   = 21
-	numberOfPeers     int   = 14
-	listenPort        int64 = 1111
+	numberOfPeers     int   = 5
+	listenPort        int64 = 11111
 	numberOfDelegates int64 = 21
-	slotTimeInterval  int64 = 5
+	slotTimeInterval  int64 = 30
 )
 
 func gobInterfaceRegister() {
@@ -43,7 +44,6 @@ func main() {
 
 	nodes := make([]*Node, 0)
 
-	fmt.Println("[Maximum FP Node]", maxFPNode)
 	for i := 0; i < numberOfNodes; i++ {
 		node := NewNode(ctx, int64(i))
 		nodes = append(nodes, node)
@@ -53,6 +53,11 @@ func main() {
 		nodes[i].Connect()
 	}
 
+	for i := 0; i < numberOfNodes; i++ {
+		fmt.Println("NodeId:", i, nodes[i].Peers)
+	}
+
+	time.Sleep(time.Second * 1)
 	for i := 0; i < numberOfNodes; i++ {
 		go nodes[i].StartForging()
 	}

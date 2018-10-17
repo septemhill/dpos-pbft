@@ -55,6 +55,10 @@ func (b *Block) GetTimestamp() int64 {
 	return b.Timestamp
 }
 
+func (b *Block) GetForger() string {
+	return b.Forger
+}
+
 func (b *Block) CalculateMerkleRoot() {
 
 }

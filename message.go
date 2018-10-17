@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/gob"
 	"log"
-	"strconv"
 )
 
 const (
@@ -27,7 +26,7 @@ type StageMessage struct {
 
 func InitMessage(nodeId int64) *Message {
 	m := &Message{Type: MessageTypeInit, RoutePath: make([]int64, 0)}
-	m.Body = "Message from" + strconv.FormatInt(nodeId, 10)
+	m.Body = nodeId //"Message from" + strconv.FormatInt(nodeId, 10)
 	m.RoutePath = append(m.RoutePath, nodeId)
 	return m
 }

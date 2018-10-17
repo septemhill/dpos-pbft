@@ -23,11 +23,11 @@ type Node struct {
 	LastSlot int64
 }
 
-func handleConnection(ctx context.Context, dec *gob.Decoder, node *Node) {
+func handleConnection(ctx context.Context, conn net.Conn, dec *gob.Decoder, node *Node) {
 	for {
 		var msg Message
 		ReceiveMessage(&msg, dec)
-		node.ProcessMessage(&msg)
+		node.ProcessMessage(&msg, conn)
 		//fmt.Println("NodeId", node.Id, msg)
 		time.Sleep(time.Millisecond * 100)
 	}
@@ -53,7 +53,7 @@ func NewServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
 			conns = append(conns, conn)
 			dec := gob.NewDecoder(conn)
 
-			go handleConnection(ctx, dec, node)
+			go handleConnection(ctx, conn, dec, node)
 
 			select {
 			case <-ctx.Done():
@@ -140,9 +140,19 @@ func (n *Node) Broadcast(msg *Message) {
 	}
 }
 
-func (n *Node) ProcessMessage(msg *Message) {
+func (n *Node) ProcessMessage(msg *Message, conn net.Conn) {
 	switch msg.Type {
 	case MessageTypeInit:
+		peerId := msg.Body.(int64)
+		_, ok := n.Peers[peerId]
+		if !ok {
+			n.Peers[peerId] = &Peer{
+				Id:          peerId,
+				NodeId:      n.Id,
+				Conn:        conn,
+				ConnEncoder: gob.NewEncoder(conn),
+			}
+		}
 	case MessageTypeBlock:
 		block := msg.Body.(Block)
 		//fmt.Println("NodeId", n.Id, "receive block message:", block)

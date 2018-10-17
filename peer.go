@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/gob"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -29,7 +28,7 @@ func NewPeer(peerId, nodeId, port int64) *Peer {
 		ConnEncoder: gob.NewEncoder(conn),
 	}
 
-	fmt.Println("Node ", nodeId, " connect to peer ", peerId)
+	SendMessage(InitMessage(nodeId), peer.ConnEncoder, nodeId)
 
 	return peer
 }
