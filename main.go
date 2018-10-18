@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,10 +17,13 @@ const (
 	numberOfPeers     int   = 5
 	listenPort        int64 = 11111
 	numberOfDelegates int64 = int64(numberOfNodes)
-	slotTimeInterval  int64 = 10
+	slotTimeInterval  int64 = 3
 )
 
-var currentForger int64 = -1
+var (
+	maxFPNode           = int64(math.Floor(float64((numberOfDelegates - 1) / 3)))
+	currentForger int64 = -1
+)
 
 func gobInterfaceRegister() {
 	gob.Register(Block{})

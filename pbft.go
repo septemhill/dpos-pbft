@@ -3,13 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"strconv"
 	"sync"
-)
-
-var (
-	maxFPNode = int64(math.Floor(float64((numberOfDelegates - 1) / 3)))
 )
 
 //PBFT Status List
@@ -29,6 +24,7 @@ type ConsensusInfo struct {
 
 //Pbft p
 type Pbft struct {
+	MsgLock          sync.RWMutex
 	Mutex            sync.RWMutex
 	State            int64
 	Node             *Node
@@ -104,8 +100,8 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 //ClearState clear state
 func (p *Pbft) ClearState() {
 	p.State = PBFTStateNone
-	p.PrepareInfo = newConsensusInfo()
 	p.Mutex.Lock()
+	p.PrepareInfo = newConsensusInfo()
 	p.CommitInfos = make(map[string]*ConsensusInfo)
 	p.PendingBlocks = make(map[string]*Block)
 	p.Mutex.Unlock()
@@ -139,7 +135,7 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		p.PrepareInfo.Votes[stageMsg.Signer] = struct{}{}
 		p.Mutex.Unlock()
 		p.PrepareInfo.VotesNumber++
-		fmt.Println("pbft", p.Node.ID, "prepare votes", p.PrepareInfo.VotesNumber)
+		//fmt.Println("pbft", p.Node.ID, "prepare votes", p.PrepareInfo.VotesNumber)
 
 		if p.PrepareInfo.VotesNumber > maxFPNode {
 			//fmt.Println("node", p.Node.ID, "change state to commit")
@@ -191,15 +187,15 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 			commitInfo.Votes[stageMsg.Signer] = struct{}{}
 			p.Mutex.Unlock()
 			commitInfo.VotesNumber++
-			fmt.Println("pbft", p.Node.ID, "commit votes", commitInfo.VotesNumber)
+			//fmt.Println("pbft", p.Node.ID, "commit votes", commitInfo.VotesNumber)
 			if commitInfo.VotesNumber > 2*maxFPNode {
 				p.Mutex.RLock()
 				_, ok := p.PendingBlocks[stageMsg.Hash]
-				p.Mutex.RUnlock()
 
 				if ok {
 					p.Chain.CommitBlock(p.PendingBlocks[stageMsg.Hash])
 				}
+				p.Mutex.RUnlock()
 				p.ClearState()
 			}
 		}
@@ -218,9 +214,13 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 func (p *Pbft) ProcessStageMessage(msg *Message) {
 	switch msg.Type {
 	case MessageTypePrepare:
+		p.MsgLock.Lock()
 		p.handlePrepareMessage(msg)
+		p.MsgLock.Unlock()
 	case MessageTypeCommit:
+		p.MsgLock.Lock()
 		p.handleCommitMessage(msg)
+		p.MsgLock.Unlock()
 	default:
 		log.Println("ProcessStageMessage cannot find match message type")
 	}

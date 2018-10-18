@@ -27,12 +27,8 @@ type Node struct {
 func handleConnection(ctx context.Context, conn net.Conn, dec *gob.Decoder, node *Node) {
 	for {
 		var msg Message
-
-		rand.Seed(time.Now().UnixNano())
-		//fmt.Println("NodeID", node.ID, "get message")
 		ReceiveMessage(&msg, dec)
 		node.ProcessMessage(&msg, conn)
-		//fmt.Println("NodeId", node.ID, msg)
 		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
 	}
 }
@@ -51,7 +47,7 @@ func newServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
 			conn, err := listener.Accept()
 
 			if err != nil {
-				log.Println("Accept Failed")
+				log.Println("Accept Failed", err)
 			}
 
 			conns = append(conns, conn)
