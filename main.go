@@ -15,8 +15,8 @@ const (
 	numberOfNodes     int   = 7
 	numberOfPeers     int   = 3
 	listenPort        int64 = 11111
-	numberOfDelegates int64 = 7
-	slotTimeInterval  int64 = 5
+	numberOfDelegates int64 = int64(numberOfNodes)
+	slotTimeInterval  int64 = 30
 )
 
 func gobInterfaceRegister() {

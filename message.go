@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/gob"
 	"log"
+	"time"
 )
 
+//Message Type List
 const (
 	MessageTypeInit = iota
 	MessageTypeBlock
@@ -27,42 +29,43 @@ type StageMessage struct {
 }
 
 //InitMessage wrap up initialize message
-func InitMessage(nodeId int64) *Message {
+func InitMessage(nodeID int64) *Message {
 	m := &Message{Type: MessageTypeInit, RoutePath: make([]int64, 0)}
-	m.Body = nodeId
-	m.RoutePath = append(m.RoutePath, nodeId)
+	m.Body = nodeID
+	m.RoutePath = append(m.RoutePath, nodeID)
 	return m
 }
 
 //BlockMessage wrap up block message
-func BlockMessage(nodeId int64, block Block) *Message {
+func BlockMessage(nodeID int64, block Block) *Message {
 	m := &Message{Type: MessageTypeBlock, RoutePath: make([]int64, 0)}
 	m.Body = block
-	m.RoutePath = append(m.RoutePath, nodeId)
+	m.RoutePath = append(m.RoutePath, nodeID)
 	return m
 }
 
 //PrepareMessage wrap up prepare message
-func PrepareMessage(nodeId int64, stage StageMessage) *Message {
+func PrepareMessage(nodeID int64, stage StageMessage) *Message {
 	m := &Message{Type: MessageTypePrepare, RoutePath: make([]int64, 0)}
 	m.Body = stage
-	m.RoutePath = append(m.RoutePath, nodeId)
+	m.RoutePath = append(m.RoutePath, nodeID)
 	return m
 }
 
 //CommitMessage wrap up commit message
-func CommitMessage(nodeId int64, stage StageMessage) *Message {
+func CommitMessage(nodeID int64, stage StageMessage) *Message {
 	m := &Message{Type: MessageTypeCommit, RoutePath: make([]int64, 0)}
 	m.Body = stage
-	m.RoutePath = append(m.RoutePath, nodeId)
+	m.RoutePath = append(m.RoutePath, nodeID)
 	return m
 }
 
 //SendMessage serialize message and send data by socket
-func SendMessage(msg *Message, enc *gob.Encoder, nodeId int64) error {
+func SendMessage(msg *Message, enc *gob.Encoder, nodeID int64) error {
+	time.Sleep(time.Millisecond * 100)
 	//Trace routing path (DEBUG)
-	if msg.RoutePath[len(msg.RoutePath)-1] != nodeId {
-		msg.RoutePath = append(msg.RoutePath, nodeId)
+	if msg.RoutePath[len(msg.RoutePath)-1] != nodeID {
+		msg.RoutePath = append(msg.RoutePath, nodeID)
 	}
 
 	err := enc.Encode(msg)

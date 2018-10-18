@@ -43,7 +43,7 @@ func (bc *Blockchain) CreateBlock() *Block {
 		Height:        lastBlock.GetHeight() + 1,
 		Timestamp:     time.Now().Unix(),
 		PrevBlockHash: lastBlock.GetHash(),
-		Forger:        strconv.FormatInt(bc.Node.Id, 10),
+		Forger:        strconv.FormatInt(bc.Node.ID, 10),
 		Transactions:  make([]Transaction, 0),
 	}
 
@@ -53,7 +53,7 @@ func (bc *Blockchain) CreateBlock() *Block {
 }
 
 func (bc *Blockchain) printBlockchain() {
-	fmt.Printf("NodeId %d ", bc.Node.Id)
+	fmt.Printf("NodeId %d ", bc.Node.ID)
 	for i := 0; i < len(bc.Blocks); i++ {
 		fmt.Printf("%s -> ", bc.Blocks[i].GetForger())
 	}

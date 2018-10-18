@@ -10,14 +10,14 @@ import (
 
 //Peer p
 type Peer struct {
-	Id          int64
-	NodeId      int64
+	ID          int64
+	NodeID      int64
 	Conn        net.Conn
 	ConnEncoder *gob.Encoder
 }
 
 //NewPeer create a new peer
-func NewPeer(peerId, nodeId, port int64) *Peer {
+func NewPeer(peerID, nodeID, port int64) *Peer {
 	conn, err := net.Dial("tcp", ":"+strconv.FormatInt(port, 10))
 
 	if err != nil {
@@ -25,14 +25,14 @@ func NewPeer(peerId, nodeId, port int64) *Peer {
 	}
 
 	peer := &Peer{
-		Id:          peerId,
-		NodeId:      nodeId,
+		ID:          peerID,
+		NodeID:      nodeID,
 		Conn:        conn,
 		ConnEncoder: gob.NewEncoder(conn),
 	}
 
-	fmt.Println("Node ", nodeId, " connect to peer ", peerId)
-	SendMessage(InitMessage(nodeId), peer.ConnEncoder, nodeId)
+	fmt.Println("Node ", nodeID, " connect to peer ", peerID)
+	SendMessage(InitMessage(nodeID), peer.ConnEncoder, nodeID)
 
 	return peer
 }

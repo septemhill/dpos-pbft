@@ -13,6 +13,7 @@ var (
 	maxFPNode = int64(math.Floor(float64((numberOfDelegates - 1) / 3)))
 )
 
+//PBFT Status List
 const (
 	PBFTStateNone = iota
 	PBFTStatePrepare
@@ -83,19 +84,19 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 		p.PrepareInfo.Hash = block.GetHash()
 		p.PrepareInfo.VotesNumber = 1
 		p.Mutex.Lock()
-		p.PrepareInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+		p.PrepareInfo.Votes[strconv.FormatInt(p.Node.ID, 10)] = struct{}{}
 		p.Mutex.Unlock()
-		fmt.Println("node", p.Node.Id, "change state to prepare")
+		//fmt.Println("node", p.Node.ID, "change state to prepare")
 
 		stageMsg := StageMessage{
 			Height: block.GetHeight(),
 			Hash:   block.GetHash(),
-			Signer: strconv.FormatInt(p.Node.Id, 10),
+			Signer: strconv.FormatInt(p.Node.ID, 10),
 		}
 
 		go func() {
 			time.Sleep(time.Millisecond * 100)
-			p.Node.Broadcast(PrepareMessage(p.Node.Id, stageMsg))
+			p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
 		}()
 		//p.Node.Broadcast(PrepareMessage(stageMsg))
 	}
@@ -112,7 +113,7 @@ func (p *Pbft) ClearState() {
 }
 
 func (p *Pbft) handlePrepareMessage(msg *Message) {
-	//fmt.Printf("NodeId %d receive prepare message: %s\n", p.Node.Id, msg.Body.(StageMessage).Hash)
+	//fmt.Printf("NodeId %d receive prepare message: %s\n", p.Node.ID, msg.Body.(StageMessage).Hash)
 	stageMsg := msg.Body.(StageMessage)
 	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
 
@@ -139,15 +140,15 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		p.PrepareInfo.Votes[stageMsg.Signer] = struct{}{}
 		p.Mutex.Unlock()
 		p.PrepareInfo.VotesNumber++
-		fmt.Println("pbft", p.Node.Id, "prepare votes", p.PrepareInfo.VotesNumber)
+		//fmt.Println("pbft", p.Node.ID, "prepare votes", p.PrepareInfo.VotesNumber)
 
 		if p.PrepareInfo.VotesNumber > maxFPNode {
-			fmt.Println("node", p.Node.Id, "change state to commit")
+			//fmt.Println("node", p.Node.ID, "change state to commit")
 			p.State = PBFTStateCommit
 			commitInfo := newConsensusInfo()
 			commitInfo.Hash = p.PrepareInfo.Hash
 			commitInfo.Height = p.PrepareInfo.Height
-			commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+			commitInfo.Votes[strconv.FormatInt(p.Node.ID, 10)] = struct{}{}
 			p.Mutex.Lock()
 			p.CommitInfos[commitInfo.Hash] = commitInfo
 			p.Mutex.Unlock()
@@ -155,10 +156,10 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 			stageMsg := StageMessage{
 				Height: p.PrepareInfo.Height,
 				Hash:   p.PrepareInfo.Hash,
-				Signer: strconv.FormatInt(p.Node.Id, 10),
+				Signer: strconv.FormatInt(p.Node.ID, 10),
 			}
 
-			p.Node.Broadcast(CommitMessage(p.Node.Id, stageMsg))
+			p.Node.Broadcast(CommitMessage(p.Node.ID, stageMsg))
 		}
 	}
 }
@@ -191,7 +192,7 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 			commitInfo.Votes[stageMsg.Signer] = struct{}{}
 			p.Mutex.Unlock()
 			commitInfo.VotesNumber++
-			fmt.Println("pbft", p.Node.Id, "commit votes", commitInfo.VotesNumber)
+			//fmt.Println("pbft", p.Node.ID, "commit votes", commitInfo.VotesNumber)
 			if commitInfo.VotesNumber > 2*maxFPNode {
 				p.Mutex.RLock()
 				_, ok := p.PendingBlocks[stageMsg.Hash]
@@ -207,7 +208,7 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 		commitInfo := newConsensusInfo()
 		commitInfo.Hash = stageMsg.Hash
 		commitInfo.Height = stageMsg.Height
-		commitInfo.Votes[strconv.FormatInt(p.Node.Id, 10)] = struct{}{}
+		commitInfo.Votes[strconv.FormatInt(p.Node.ID, 10)] = struct{}{}
 		p.Mutex.Lock()
 		p.CommitInfos[stageMsg.Hash] = commitInfo
 		p.Mutex.Unlock()
