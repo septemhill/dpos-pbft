@@ -27,10 +27,13 @@ type Node struct {
 func handleConnection(ctx context.Context, conn net.Conn, dec *gob.Decoder, node *Node) {
 	for {
 		var msg Message
+
+		rand.Seed(time.Now().UnixNano())
+		//fmt.Println("NodeID", node.ID, "get message")
 		ReceiveMessage(&msg, dec)
 		node.ProcessMessage(&msg, conn)
 		//fmt.Println("NodeId", node.ID, msg)
-		time.Sleep(time.Millisecond * 100)
+		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
 	}
 }
 
@@ -66,6 +69,8 @@ func newServer(ctx context.Context, node *Node, listenPort int64) net.Listener {
 				break END_LISTENER
 			default:
 			}
+
+			//time.Sleep(time.Millisecond * 100)
 		}
 	}(ctx, listener)
 
@@ -98,7 +103,8 @@ func (n *Node) Connect() {
 		_, ok := n.Peers[rand]
 		n.Mutex.RUnlock()
 		if rand != n.ID && !ok {
-			peer := NewPeer(rand, n.ID, listenPort+rand)
+			//peer := NewPeer(rand, n.ID, listenPort+rand)
+			peer := NewPeer(rand, listenPort+rand, n)
 			n.Mutex.Lock()
 			n.Peers[rand] = peer
 			n.Mutex.Unlock()
@@ -127,6 +133,7 @@ func (n *Node) StartForging() {
 		delegateID := currentSlot % numberOfDelegates
 
 		if delegateID == n.ID {
+			currentForger = n.ID
 			newBlock := n.Chain.CreateBlock()
 
 			n.Broadcast(BlockMessage(n.ID, *newBlock))
@@ -143,10 +150,8 @@ func (n *Node) StartForging() {
 //Broadcast broadcast message to peers
 func (n *Node) Broadcast(msg *Message) {
 	for _, peer := range n.Peers {
-		if n.ID == 6 || n.ID == 5 || n.ID == 4 {
-			fmt.Println("NodeId", n.ID, "Broadcast to", peer.ID)
-		}
-		go SendMessage(msg, peer.ConnEncoder, n.ID)
+		//fmt.Println("Forger ID:", currentForger, "NodeID", n.ID, "PeerID", peer.ID)
+		SendMessage(msg, peer.ConnEncoder, n.ID)
 	}
 }
 
@@ -170,7 +175,6 @@ func (n *Node) ProcessMessage(msg *Message, conn net.Conn) {
 		}
 	case MessageTypeBlock:
 		block := msg.Body.(Block)
-		//fmt.Println("NodeId:", n.ID, msg.RoutePath)
 		if !n.Chain.HasBlock(block.GetHash()) && n.Chain.ValidateBlock(&block) {
 			n.Broadcast(msg)
 			n.Pbft.AddBlock(&block, GetSlotNumber(GetTime(block.GetTimestamp())))

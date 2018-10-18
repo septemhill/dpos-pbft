@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/gob"
 	"log"
-	"time"
 )
 
 //Message Type List
@@ -62,7 +61,7 @@ func CommitMessage(nodeID int64, stage StageMessage) *Message {
 
 //SendMessage serialize message and send data by socket
 func SendMessage(msg *Message, enc *gob.Encoder, nodeID int64) error {
-	time.Sleep(time.Millisecond * 100)
+	//time.Sleep(time.Millisecond * 100)
 	//Trace routing path (DEBUG)
 	if msg.RoutePath[len(msg.RoutePath)-1] != nodeID {
 		msg.RoutePath = append(msg.RoutePath, nodeID)

@@ -12,12 +12,14 @@ import (
 )
 
 const (
-	numberOfNodes     int   = 7
-	numberOfPeers     int   = 3
+	numberOfNodes     int   = 21
+	numberOfPeers     int   = 5
 	listenPort        int64 = 11111
 	numberOfDelegates int64 = int64(numberOfNodes)
-	slotTimeInterval  int64 = 30
+	slotTimeInterval  int64 = 10
 )
+
+var currentForger int64 = -1
 
 func gobInterfaceRegister() {
 	gob.Register(Block{})

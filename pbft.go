@@ -6,7 +6,6 @@ import (
 	"math"
 	"strconv"
 	"sync"
-	"time"
 )
 
 var (
@@ -94,11 +93,11 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 			Signer: strconv.FormatInt(p.Node.ID, 10),
 		}
 
-		go func() {
-			time.Sleep(time.Millisecond * 100)
-			p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
-		}()
-		//p.Node.Broadcast(PrepareMessage(stageMsg))
+		//go func() {
+		//	time.Sleep(time.Millisecond * 100)
+		//	p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
+		//}()
+		p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
 	}
 }
 
@@ -140,7 +139,7 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 		p.PrepareInfo.Votes[stageMsg.Signer] = struct{}{}
 		p.Mutex.Unlock()
 		p.PrepareInfo.VotesNumber++
-		//fmt.Println("pbft", p.Node.ID, "prepare votes", p.PrepareInfo.VotesNumber)
+		fmt.Println("pbft", p.Node.ID, "prepare votes", p.PrepareInfo.VotesNumber)
 
 		if p.PrepareInfo.VotesNumber > maxFPNode {
 			//fmt.Println("node", p.Node.ID, "change state to commit")
@@ -192,7 +191,7 @@ func (p *Pbft) handleCommitMessage(msg *Message) {
 			commitInfo.Votes[stageMsg.Signer] = struct{}{}
 			p.Mutex.Unlock()
 			commitInfo.VotesNumber++
-			//fmt.Println("pbft", p.Node.ID, "commit votes", commitInfo.VotesNumber)
+			fmt.Println("pbft", p.Node.ID, "commit votes", commitInfo.VotesNumber)
 			if commitInfo.VotesNumber > 2*maxFPNode {
 				p.Mutex.RLock()
 				_, ok := p.PendingBlocks[stageMsg.Hash]
