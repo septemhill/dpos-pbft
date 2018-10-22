@@ -61,14 +61,14 @@ func main() {
 	time.Sleep(time.Second * 1)
 
 	for i := 0; i < numberOfNodes; i++ {
-		nodes[i].Connect()
+		nodes[i].Connect(ctx)
 	}
 
 	fmt.Println("===================================")
 	time.Sleep(time.Second * 1)
 
 	for i := 0; i < numberOfNodes; i++ {
-		fmt.Println("NodeId:", i, nodes[i].Peers)
+		fmt.Println("NodeId:", i, len(nodes[i].Peers))
 	}
 
 	fmt.Println("===================================")
@@ -79,5 +79,6 @@ func main() {
 	}
 
 	<-sysdone
+	fmt.Println("SSS")
 	cancel()
 }

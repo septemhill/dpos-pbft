@@ -89,11 +89,7 @@ func (p *Pbft) AddBlock(block *Block, slotNumber int64) {
 			Signer: strconv.FormatInt(p.Node.ID, 10),
 		}
 
-		//go func() {
-		//	time.Sleep(time.Millisecond * 100)
-		//	p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
-		//}()
-		p.Node.Broadcast(PrepareMessage(p.Node.ID, stageMsg))
+		p.Node.Broadcast(PrepareMessage( /*p.Node.ID, */ stageMsg))
 	}
 }
 
@@ -108,7 +104,6 @@ func (p *Pbft) ClearState() {
 }
 
 func (p *Pbft) handlePrepareMessage(msg *Message) {
-	//fmt.Printf("NodeId %d receive prepare message: %s\n", p.Node.ID, msg.Body.(StageMessage).Hash)
 	stageMsg := msg.Body.(StageMessage)
 	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
 
@@ -154,13 +149,12 @@ func (p *Pbft) handlePrepareMessage(msg *Message) {
 				Signer: strconv.FormatInt(p.Node.ID, 10),
 			}
 
-			p.Node.Broadcast(CommitMessage(p.Node.ID, stageMsg))
+			p.Node.Broadcast(CommitMessage( /*p.Node.ID, */ stageMsg))
 		}
 	}
 }
 
 func (p *Pbft) handleCommitMessage(msg *Message) {
-	//fmt.Println("[Commit Message]", msg.Body)
 	stageMsg := msg.Body.(StageMessage)
 	cacheKey := fmt.Sprintf("%s:%d:%s", stageMsg.Hash, stageMsg.Height, stageMsg.Signer)
 

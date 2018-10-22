@@ -25,11 +25,18 @@ type Node struct {
 }
 
 func handleConnection(ctx context.Context, conn net.Conn, dec *gob.Decoder, node *Node) {
+	//END_PEER_CONNECTION:
 	for {
 		var msg Message
 		ReceiveMessage(&msg, dec)
 		node.ProcessMessage(&msg, conn)
 		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+		//select {
+		//case <-ctx.Done():
+		//	fmt.Println("Connect Down")
+		//	break END_PEER_CONNECTION
+		//default:
+		//}
 	}
 }
 
@@ -90,7 +97,7 @@ func NewNode(ctx context.Context, id int64) *Node {
 }
 
 //Connect connect to peers
-func (n *Node) Connect() {
+func (n *Node) Connect(ctx context.Context) {
 	rand.Seed(time.Now().UnixNano())
 
 	for i := 0; i < numberOfPeers; i++ {
@@ -100,7 +107,7 @@ func (n *Node) Connect() {
 		n.Mutex.RUnlock()
 		if rand != n.ID && !ok {
 			//peer := NewPeer(rand, n.ID, listenPort+rand)
-			peer := NewPeer(rand, listenPort+rand, n)
+			peer := NewPeer(ctx, rand, listenPort+rand, n)
 			n.Mutex.Lock()
 			n.Peers[rand] = peer
 			n.Mutex.Unlock()
@@ -132,7 +139,7 @@ func (n *Node) StartForging() {
 			currentForger = n.ID
 			newBlock := n.Chain.CreateBlock()
 
-			n.Broadcast(BlockMessage(n.ID, *newBlock))
+			n.Broadcast(BlockMessage( /*n.ID, */ *newBlock))
 			n.Pbft.AddBlock(newBlock, GetSlotNumber(GetTime(newBlock.GetTimestamp())))
 
 			fmt.Println("[NODE", n.ID, " NewBlock]", newBlock)
@@ -151,30 +158,38 @@ func (n *Node) Broadcast(msg *Message) {
 	}
 }
 
+func (n *Node) handleInitMessage(msg *Message, conn net.Conn) {
+	peerID := msg.Body.(int64)
+	n.Mutex.RLock()
+	_, ok := n.Peers[peerID]
+	n.Mutex.RUnlock()
+	if !ok {
+		n.Mutex.Lock()
+		n.Peers[peerID] = &Peer{
+			ID:          peerID,
+			NodeID:      n.ID,
+			Conn:        conn,
+			ConnEncoder: gob.NewEncoder(conn),
+		}
+		n.Mutex.Unlock()
+	}
+}
+
+func (n *Node) handleBlockMessage(msg *Message) {
+	block := msg.Body.(Block)
+	if !n.Chain.HasBlock(block.GetHash()) && n.Pbft.PendingBlocks[block.GetHash()] == nil && n.Chain.ValidateBlock(&block) {
+		n.Broadcast(msg)
+		n.Pbft.AddBlock(&block, GetSlotNumber(GetTime(block.GetTimestamp())))
+	}
+}
+
 //ProcessMessage process message from message
 func (n *Node) ProcessMessage(msg *Message, conn net.Conn) {
 	switch msg.Type {
 	case MessageTypeInit:
-		peerID := msg.Body.(int64)
-		n.Mutex.RLock()
-		_, ok := n.Peers[peerID]
-		n.Mutex.RUnlock()
-		if !ok {
-			n.Mutex.Lock()
-			n.Peers[peerID] = &Peer{
-				ID:          peerID,
-				NodeID:      n.ID,
-				Conn:        conn,
-				ConnEncoder: gob.NewEncoder(conn),
-			}
-			n.Mutex.Unlock()
-		}
+		n.handleInitMessage(msg, conn)
 	case MessageTypeBlock:
-		block := msg.Body.(Block)
-		if !n.Chain.HasBlock(block.GetHash()) && n.Chain.ValidateBlock(&block) {
-			n.Broadcast(msg)
-			n.Pbft.AddBlock(&block, GetSlotNumber(GetTime(block.GetTimestamp())))
-		}
+		n.handleBlockMessage(msg)
 	default:
 		n.Pbft.ProcessStageMessage(msg)
 	}
